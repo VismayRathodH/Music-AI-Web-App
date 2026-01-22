@@ -21,7 +21,7 @@ const Meditation = () => {
             </div>
 
             <section>
-                <h3 className="text-2xl font-bold text-white mb-6">Ambient Soundscapes</h3>
+                <h3 className="text-2xl font-bold text-white mb-6">We also provide   Ambient Sounds</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                     {soundscapes.map((item, idx) => (
                         <div key={idx} className="glass-panel p-6 flex flex-col items-center justify-center space-y-4 hover:bg-white/5 transition-all cursor-pointer group rounded-2xl">
@@ -32,9 +32,7 @@ const Meditation = () => {
                                 <h4 className="text-lg font-medium text-white">{item.title}</h4>
                                 <p className="text-xs text-gray-400 mt-1">Continuous Loop</p>
                             </div>
-                            <button className="mt-2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-[var(--accent-primary)] transition-colors">
-                                <Play size={16} fill="currentColor" />
-                            </button>
+
                         </div>
                     ))}
                 </div>
@@ -42,8 +40,8 @@ const Meditation = () => {
 
             <DynamicMeditationTracks />
 
-            <section>
-                <h3 className="text-2xl font-bold text-white mb-6">Guided Sessions</h3>
+            {/* <section>
+                <h3 className="text-2xl font-bold text-white mb-6">Guided Sessions (According to your Playlist)</h3>
                 <div className="space-y-4">
                     {[1, 2, 3].map((i) => (
                         <div key={i} className="flex items-center justify-between p-4 glass-panel hover:bg-white/5 transition-colors cursor-pointer group">
@@ -60,7 +58,7 @@ const Meditation = () => {
                         </div>
                     ))}
                 </div>
-            </section>
+            </section> */}
         </div>
     );
 };

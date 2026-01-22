@@ -1,49 +1,73 @@
 import axios from 'axios';
 
-// iTunes Search API (Free, No Key required)
-const ITUNES_API_URL = 'https://itunes.apple.com/search';
-
-// Songstats API (Requires Key)
-const SONGSTATS_API_URL = 'https://songstats.p.rapidapi.com';
-const RAPIDAPI_HOST = 'songstats.p.rapidapi.com';
-const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY; // User needs to add this
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
+const RAPIDAPI_HOST = import.meta.env.VITE_RAPIDAPI_HOST;
+const BASE_URL = `https://${RAPIDAPI_HOST}`;
+import defaultCover from '../assets/default_cover.png';
 
 export const musicApiService = {
     /**
-     * Search for songs using iTunes API
-     * @param {string} query - Search term (e.g., "Taylor Swift")
+     * Search for songs using YouTube Data API v3
+     * @param {string} query - Search term
      * @returns {Promise<Array>} - List of formatted tracks
      */
     searchTracks: async (query) => {
         if (!query) return [];
         try {
-            const response = await axios.get(ITUNES_API_URL, {
+            const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+
+            if (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY_HERE') {
+                console.error('YouTube API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
+                console.log('Get your free API key from: https://console.cloud.google.com/apis/credentials');
+                return [];
+            }
+
+            const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
                 params: {
-                    term: query,
-                    media: 'music',
-                    entity: 'song',
-                    limit: 20
+                    part: 'snippet',
+                    q: query + ' music',
+                    type: 'video',
+                    videoCategoryId: '10', // Music category
+                    maxResults: 20,
+                    key: YOUTUBE_API_KEY
                 }
             });
 
-            return response.data.results.map(item => ({
-                id: item.trackId,
-                title: item.trackName,
-                artist: item.artistName,
-                album: item.collectionName,
-                cover: item.artworkUrl100?.replace('100x100', '600x600'), // Get higher res
-                previewUrl: item.previewUrl,
-                url: item.previewUrl, // Map for PlayerContext compatibility
-                duration: formatDuration(item.trackTimeMillis),
-                releaseDate: item.releaseDate,
-                genre: item.primaryGenreName,
-                trackViewUrl: item.trackViewUrl,
-                source: 'itunes'
-            }));
+            console.log("YouTube Search Response:", response.data);
+
+            const results = response.data.items || [];
+
+            return results.map(item => {
+                const snippet = item.snippet;
+                return {
+                    id: item.id.videoId,
+                    title: snippet.title,
+                    artist: snippet.channelTitle || "Unknown Artist",
+                    album: "YouTube",
+                    cover: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || defaultCover,
+                    duration: "0:00", // Duration requires additional API call
+                    type: 'track',
+                    source: 'youtube'
+                };
+            }).filter(item => item.id);
         } catch (error) {
-            console.error("iTunes Search Error:", error);
+            console.error("YouTube Search Error:", error);
+            if (error.response?.status === 403) {
+                console.error('API Key error. Please check your YouTube API key and quota.');
+            }
             return [];
         }
+    },
+
+    /**
+     * Format milliseconds to "m:ss"
+     */
+    formatDuration: (ms) => {
+        if (!ms) return "0:00";
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     },
 
     /**
@@ -60,50 +84,23 @@ export const musicApiService = {
     },
 
     /**
-     * Get detailed Track Stats from Songstats (Requires API Key)
-     * This matches the user's provided snippet logic but uses Axios
+     * Get playable stream URL
+     * For YouTube videos, return null as YouTube IFrame Player handles playback
+     * @param {string} trackId 
+     * @returns {Promise<string|null>}
      */
-    getTrackDetails: async (trackId) => {
-        if (!RAPIDAPI_KEY) {
-            console.warn("Missing VITE_RAPIDAPI_KEY in .env");
-            return null;
-        }
+    getStreamUrl: async (trackId) => {
+        // YouTube IFrame Player API handles playback directly
+        // No need to fetch stream URLs
+        return null;
+    },
 
-        try {
-            // Note: The user's snippet used specific Spotify/Apple IDs. 
-            // Realistically, we need to map the iTunes ID to something Songstats understands 
-            // or search Songstats by ISRC if available from iTunes.
-
-            // iTunes often provides isrc? rarely in public search, but let's assume we might have it or pass a query.
-            // For now, this implementation follows the user's snippet structure for a specific request.
-
-            const options = {
-                method: 'GET',
-                url: `${SONGSTATS_API_URL}/tracks/info`,
-                params: {
-                    // In a real scenario, we'd need to pass the actual IDs here.
-                    // For testing purposes as per user snippet:
-                    spotify_track_id: '3VTPi12rK7mioSLL0mmu75'
-                },
-                headers: {
-                    'x-rapidapi-key': RAPIDAPI_KEY,
-                    'x-rapidapi-host': RAPIDAPI_HOST
-                }
-            };
-
-            const response = await axios.request(options);
-            return response.data;
-        } catch (error) {
-            console.error("Songstats API Error:", error);
-            return null;
-        }
+    /**
+     * Get lyrics for a track (Not supported by this specific YT-Music API yet)
+     * @param {string} trackId 
+     * @returns {Promise<Object|null>}
+     */
+    getLyrics: async (trackId) => {
+        return null;
     }
-};
-
-// Helper to format milliseconds to MM:SS
-const formatDuration = (ms) => {
-    if (!ms) return '0:00';
-    const minutes = Math.floor(ms / 60000);
-    const seconds = ((ms % 60000) / 1000).toFixed(0);
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 };

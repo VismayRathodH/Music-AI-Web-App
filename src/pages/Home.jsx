@@ -58,7 +58,20 @@ const Home = () => {
                 .limit(8);
 
             if (error) console.error('Error fetching songs:', error);
-            else setRecentSongs(data || []);
+            else {
+                // Filter out banned content
+                const filteredData = (data || []).filter(song => {
+                    const title = song.title?.toLowerCase() || '';
+                    const artist = song.artist?.toLowerCase() || '';
+                    return !title.includes('imagin_dragon') &&
+                        !artist.includes('imagin_dragon') &&
+                        !title.includes('imagine dragons') &&
+                        !artist.includes('imagine dragons') &&
+                        !title.includes('imagine_dragons') &&
+                        !artist.includes('imagine_dragons');
+                });
+                setRecentSongs(filteredData);
+            }
         };
         fetchSongs();
     }, []);
@@ -68,7 +81,18 @@ const Home = () => {
         const fetchHits = async () => {
             try {
                 const hits = await musicApiService.searchTracks('top hits 2024');
-                setGlobalHits(hits.slice(0, 5)); // Take top 5
+                // Filter out banned content
+                const filteredHits = hits.filter(song => {
+                    const title = song.title?.toLowerCase() || '';
+                    const artist = song.artist?.toLowerCase() || '';
+                    return !title.includes('imagin_dragon') &&
+                        !artist.includes('imagin_dragon') &&
+                        !title.includes('imagine dragons') &&
+                        !artist.includes('imagine dragons') &&
+                        !title.includes('imagine_dragons') &&
+                        !artist.includes('imagine_dragons');
+                });
+                setGlobalHits(filteredHits.slice(0, 5)); // Take top 5
             } catch (error) {
                 console.error("Error fetching hits:", error);
             }
@@ -114,8 +138,8 @@ const Home = () => {
                                 {slide.description}
                             </p>
                             <button className="flex items-center space-x-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-secondary)] text-white px-6 py-3 rounded-full font-medium transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] animate-fade-in-up delay-200">
-                                <Play fill="currentColor" size={20} />
-                                <span>Play Now</span>
+                                <noPlay fill="currentColor" size={20} />
+                                <span>Enjoy The Lyrics</span>
                             </button>
                         </div>
                     </div>
@@ -197,7 +221,9 @@ const Home = () => {
                                     {song.cover_url ? (
                                         <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full bg-gray-700 flex items-center justify-center text-gray-500">No Art</div>
+                                        <div className="w-full h-full bg-gray-800 flex items-center justify-center text-gray-600">
+                                            <Music size={40} />
+                                        </div>
                                     )}
                                     <div className="absolute bottom-4 right-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
                                         <button className="w-10 h-10 rounded-full bg-[var(--accent-primary)] text-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform">

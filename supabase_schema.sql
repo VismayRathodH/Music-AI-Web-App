@@ -9,6 +9,7 @@ CREATE TABLE profiles (
   full_name TEXT,
   avatar_url TEXT,
   website TEXT,
+  minutes_listened INTEGER DEFAULT 0,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -165,3 +166,48 @@ CREATE POLICY "Public Access"
 CREATE POLICY "Authenticated Uploads"
   ON storage.objects FOR INSERT
   WITH CHECK ( bucket_id IN ('songs', 'covers') AND auth.role() = 'authenticated' );
+
+
+-- AI_PLAYLISTS TABLE
+CREATE TABLE ai_playlists (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  title TEXT NOT NULL,
+  songs JSONB NOT NULL,
+  cover TEXT,
+  color TEXT,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE ai_playlists ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own AI playlists." 
+  ON ai_playlists FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own AI playlists." 
+  ON ai_playlists FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own AI playlists." 
+  ON ai_playlists FOR DELETE USING (auth.uid() = user_id);
+
+
+-- LIKED_SONGS TABLE
+CREATE TABLE liked_songs (
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  song_id TEXT NOT NULL, -- Storing the ID (can be YouTube videoId)
+  song_data JSONB, -- Optional: store metadata to avoid refetching
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  PRIMARY KEY (user_id, song_id)
+);
+
+ALTER TABLE liked_songs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own liked songs." 
+  ON liked_songs FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can like songs." 
+  ON liked_songs FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can unlike songs." 
+  ON liked_songs FOR DELETE USING (auth.uid() = user_id);
+  

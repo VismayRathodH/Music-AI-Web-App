@@ -10,12 +10,12 @@ import Upload from './pages/Upload';
 import AIPlaylist from './pages/AIPlaylist';
 import Meditation from './pages/Meditation';
 
-import Artists from './pages/Artists';
 import Albums from './pages/Albums';
 import Library from './pages/Library';
 import UserProfile from './pages/UserProfile';
 import ForgotPassword from './pages/ForgotPassword';
 import AboutUs from './pages/AboutUs';
+import FullScreenPlayer from './components/FullScreenPlayer';
 import { AuthProvider } from './context/AuthContext';
 import { PlayerProvider } from './context/PlayerContext'; // Import PlayerProvider
 import ProtectedRoute from './components/ProtectedRoute'; // Import wrapper
@@ -40,11 +40,14 @@ function App() {
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
             <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
 
-            <Route path="/artists" element={<ProtectedRoute><Artists /></ProtectedRoute>} />
+
             <Route path="/albums" element={<ProtectedRoute><Albums /></ProtectedRoute>} />
 
             <Route path="/ai-playlist" element={<ProtectedRoute><AIPlaylist /></ProtectedRoute>} />
             <Route path="/meditation" element={<ProtectedRoute><Meditation /></ProtectedRoute>} />
+
+            {/* Full Screen Player Route */}
+            <Route path="/player" element={<ProtectedRoute><FullScreenPlayer /></ProtectedRoute>} />
           </Routes>
         </Layout>
       </PlayerProvider>

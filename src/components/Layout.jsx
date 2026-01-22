@@ -2,9 +2,13 @@ import React from 'react';
 import { Home, Search, Library, Disc, User, Upload, Sparkles, Wind, Menu } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import MusicPlayer from './MusicPlayer';
+import FullScreenPlayer from './FullScreenPlayer';
+import { usePlayer } from '../context/PlayerContext';
 
 const Layout = ({ children }) => {
     const location = useLocation();
+    const { currentSong } = usePlayer();
+    const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
     const NavItem = ({ to, icon: Icon, label }) => {
@@ -64,7 +68,6 @@ const Layout = ({ children }) => {
                     <NavItem to="/library" icon={Library} label="Your Library" />
 
                     <div className="pt-6 pb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Discover</div>
-                    <NavItem to="/artists" icon={User} label="Artists" />
                     <NavItem to="/albums" icon={Disc} label="Albums" />
 
                     <div className="pt-6 pb-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Features</div>
@@ -91,15 +94,19 @@ const Layout = ({ children }) => {
                 {/* Top Gradient Overlay for depth */}
                 <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-[var(--accent-primary)]/10 to-transparent pointer-events-none" />
 
-                <div className="p-8 pb-32 min-h-full pt-20 md:pt-8">
+                <div className={`p-8 min-h-full pt-20 md:pt-8 ${currentSong && !isAuthPage ? 'pb-32' : 'pb-8'}`}>
                     {children}
                 </div>
             </main>
 
             {/* Player Bar - Glass Panel */}
-            <div className="fixed bottom-0 left-0 md:left-64 right-0 h-24 glass-panel border-t border-white/10 z-50 backdrop-blur-xl bg-[#050505]/80 px-4">
-                <MusicPlayer />
-            </div>
+            {!isAuthPage && currentSong && (
+                <div className="fixed bottom-0 left-0 md:left-64 right-0 h-25 glass-panel border-t border-white/10 z-50 backdrop-blur-xl bg-[#050505]/80 px-4">
+                    <MusicPlayer />
+                </div>
+            )}
+
+            {currentSong && <FullScreenPlayer />}
         </div>
     );
 };

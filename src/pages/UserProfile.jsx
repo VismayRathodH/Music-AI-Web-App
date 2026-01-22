@@ -2,10 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { User, Settings, Heart, Disc, Music, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { usePlayer } from '../context/PlayerContext';
 import { supabase } from '../supabaseClient';
 
 const UserProfile = () => {
     const { user, signOut } = useAuth();
+    const { secondsListened } = usePlayer();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -16,7 +18,7 @@ const UserProfile = () => {
             try {
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('username, full_name, avatar_url')
+                    .select('username, full_name, avatar_url, minutes_listened')
                     .eq('id', user.id)
                     .single();
 
@@ -57,11 +59,9 @@ const UserProfile = () => {
                     <p className="text-lg text-gray-400 mb-4">{displayHandle}</p>
 
                     <div className="flex flex-wrap items-center justify-center md:justify-start space-x-2 text-white/80 mb-6">
-                        <span>0 Public Playlists</span>
+                        <span>{profile?.followers_count || 0} Followers</span>
                         <span>•</span>
-                        <span>0 Followers</span>
-                        <span>•</span>
-                        <span>0 Following</span>
+                        <span>{profile?.following_count || 0} Following</span>
                     </div>
 
                     <button
@@ -82,7 +82,9 @@ const UserProfile = () => {
                 </div>
                 <div className="glass-panel p-6 flex flex-col items-center justify-center space-y-2">
                     <div className="text-gray-400 text-sm uppercase">Minutes Listened</div>
-                    <div className="text-3xl font-bold text-white">0</div>
+                    <div className="text-3xl font-bold text-white">
+                        {Math.floor((profile?.minutes_listened || 0) + (secondsListened / 60))}
+                    </div>
                 </div>
                 <div className="glass-panel p-6 flex flex-col items-center justify-center space-y-2">
                     <div className="text-gray-400 text-sm uppercase">Top Artist</div>
@@ -90,13 +92,7 @@ const UserProfile = () => {
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-white">Public Playlists</h2>
-                <div className="text-gray-500 italic text-center py-10">
-                    No public playlists yet.
-                </div>
-            </div>
+            {/* Removed Public Playlists Section */}
         </div>
     );
 };

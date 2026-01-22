@@ -43,6 +43,15 @@ export const AuthProvider = ({ children }) => {
             if (!supabase) throw new Error("Backend not configured");
             return supabase.auth.signInWithPassword(data);
         },
+        signInWithGoogle: async () => {
+            if (!supabase) throw new Error("Backend not configured");
+            return supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin
+                }
+            });
+        },
         signOut: async () => {
             if (supabase) await supabase.auth.signOut();
             navigate('/login');

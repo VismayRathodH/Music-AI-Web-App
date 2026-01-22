@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Mic, FileAudio, Zap, Play, Clock, Heart, ArrowRight } from 'lucide-react';
+import { Sparkles, Mic, FileAudio, Zap, Play, Clock, Heart, ArrowRight, Trash2, Save } from 'lucide-react';
 import { generatePlaylist } from '../services/aiService';
 import { supabase } from '../supabaseClient';
 import { usePlayer } from '../context/PlayerContext';
@@ -14,13 +14,123 @@ const AIPlaylist = () => {
     const [allSongs, setAllSongs] = useState([]);
     const [error, setError] = useState('');
 
-    // Mock Recent Creations for UI demo (since we don't save playlists to DB yet)
-    const recentCreations = [
-        { id: '1', title: 'Golden Hour Lo-Fi', cover: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?q=80&w=2070&auto=format&fit=crop', color: 'from-orange-500/20 to-yellow-500/20' },
-        { id: '2', title: 'Midnight Coding', cover: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2070&auto=format&fit=crop', color: 'from-cyan-500/20 to-blue-500/20' },
-        { id: '3', title: 'Cardio Pump', cover: 'https://images.unsplash.com/photo-1605296867304-46d5465a13f1?q=80&w=2070&auto=format&fit=crop', color: 'from-red-500/20 to-orange-500/20' },
-        { id: '4', title: 'Zen Meditation', cover: 'https://images.unsplash.com/photo-1528319725582-ddc096101511?q=80&w=2069&auto=format&fit=crop', color: 'from-blue-500/20 to-cyan-500/20' }
-    ];
+    const { user } = useAuth();
+    const [recentCreations, setRecentCreations] = useState([]);
+
+    useEffect(() => {
+        const fetchPlaylists = async () => {
+            if (user) {
+                const { data, error } = await supabase
+                    .from('ai_playlists')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+
+                if (!error && data) {
+                    setRecentCreations(data.map(p => ({
+                        ...p,
+                        songs: typeof p.songs === 'string' ? JSON.parse(p.songs) : p.songs
+                    })));
+                    return;
+                }
+            }
+
+            // Fallback/Guest
+            const savedPlaylists = localStorage.getItem('ai_playlists');
+            if (savedPlaylists) {
+                try {
+                    setRecentCreations(JSON.parse(savedPlaylists));
+                } catch (e) {
+                    console.error("Failed to parse playlists", e);
+                }
+            }
+        };
+        fetchPlaylists();
+    }, [user]);
+
+    const getPlaylistTheme = (prompt) => {
+        const lowerPrompt = prompt.toLowerCase();
+
+        if (lowerPrompt.includes('workout') || lowerPrompt.includes('gym') || lowerPrompt.includes('pump') || lowerPrompt.includes('run')) {
+            return {
+                cover: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop',
+                color: 'from-orange-600/30 to-red-600/30'
+            };
+        } else if (lowerPrompt.includes('chill') || lowerPrompt.includes('lofi') || lowerPrompt.includes('relax') || lowerPrompt.includes('study')) {
+            return {
+                cover: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?q=80&w=2070&auto=format&fit=crop',
+                color: 'from-indigo-400/30 to-purple-400/30'
+            };
+        } else if (lowerPrompt.includes('party') || lowerPrompt.includes('dance') || lowerPrompt.includes('club') || lowerPrompt.includes('house')) {
+            return {
+                cover: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070&auto=format&fit=crop',
+                color: 'from-pink-500/30 to-rose-500/30'
+            };
+        } else if (lowerPrompt.includes('rock') || lowerPrompt.includes('metal') || lowerPrompt.includes('punk')) {
+            return {
+                cover: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?q=80&w=2070&auto=format&fit=crop',
+                color: 'from-red-900/40 to-black/60'
+            };
+        } else if (lowerPrompt.includes('jazz') || lowerPrompt.includes('blues') || lowerPrompt.includes('soul')) {
+            return {
+                cover: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?q=80&w=2070&auto=format&fit=crop',
+                color: 'from-amber-700/30 to-yellow-900/30'
+            };
+        } else if (lowerPrompt.includes('sleep') || lowerPrompt.includes('night') || lowerPrompt.includes('dream')) {
+            return {
+                cover: 'https://images.unsplash.com/photo-1519681393798-382879e34bd3?q=80&w=2070&auto=format&fit=crop',
+                color: 'from-slate-800/40 to-blue-900/40'
+            };
+        }
+
+        // Default
+        return {
+            cover: 'https://images.unsplash.com/photo-1614149162883-504ce4d13909?q=80&w=2074&auto=format&fit=crop',
+            color: 'from-blue-500/20 to-cyan-500/20'
+        };
+    };
+
+    const savePlaylistToHistory = async (newPlaylistSongs, promptText) => {
+        const theme = getPlaylistTheme(promptText);
+
+        const newPlaylist = {
+            id: Date.now().toString(),
+            title: promptText.length > 30 ? promptText.substring(0, 30) + '...' : promptText,
+            cover: theme.cover,
+            songs: newPlaylistSongs,
+            timestamp: Date.now(),
+            color: theme.color,
+            user_id: user?.id || null
+        };
+
+        if (user) {
+            try {
+                await supabase.from('ai_playlists').insert([{
+                    title: newPlaylist.title,
+                    songs: JSON.stringify(newPlaylistSongs),
+                    cover: theme.cover,
+                    color: theme.color,
+                    user_id: user.id
+                }]);
+            } catch (err) {
+                console.error("Failed to save to Supabase:", err);
+            }
+        }
+
+        const updatedHistory = [newPlaylist, ...recentCreations].slice(0, 8); // Keep last 8
+        setRecentCreations(updatedHistory);
+        localStorage.setItem('ai_playlists', JSON.stringify(updatedHistory));
+    };
+
+    const deletePlaylist = async (playlistId, e) => {
+        e.stopPropagation();
+        if (user) {
+            await supabase.from('ai_playlists').delete().eq('id', playlistId).eq('user_id', user.id);
+        }
+        const updated = recentCreations.filter(p => p.id !== playlistId);
+        setRecentCreations(updated);
+        localStorage.setItem('ai_playlists', JSON.stringify(updated));
+    };
 
     const suggestedTags = [
         "#FocusFlow", "#DeepHouse", "#Meditation", "#90sRock", "#WorkoutHype"
@@ -30,7 +140,20 @@ const AIPlaylist = () => {
         const fetchSongs = async () => {
             const { data, error } = await supabase.from('songs').select('*');
             if (error) console.error("Error fetching songs:", error);
-            else setAllSongs(data || []);
+            else {
+                // Filter out banned content
+                const filteredData = (data || []).filter(song => {
+                    const title = song.title?.toLowerCase() || '';
+                    const artist = song.artist?.toLowerCase() || '';
+                    return !title.includes('imagin_dragon') &&
+                        !artist.includes('imagin_dragon') &&
+                        !title.includes('imagine dragons') &&
+                        !artist.includes('imagine dragons') &&
+                        !title.includes('imagine_dragons') &&
+                        !artist.includes('imagine_dragons');
+                });
+                setAllSongs(filteredData);
+            }
         };
         fetchSongs();
     }, []);
@@ -58,6 +181,12 @@ const AIPlaylist = () => {
 
             // Process recommendations: Check local first, then fetch from API
             const processedPlaylist = await Promise.all(recommendations.map(async (rec) => {
+                // Double check filter for AI suggestions
+                const rTitle = rec.title.toLowerCase();
+                const rArtist = rec.artist.toLowerCase();
+                if (rTitle.includes('imagine dragons') || rArtist.includes('imagine dragons') ||
+                    rTitle.includes('imagine_dragons') || rArtist.includes('imagine_dragons')) return null;
+
                 // 1. Try to find in local library first (by ID if available, or Title/Artist)
                 let match = allSongs.find(s =>
                     (rec.isLocal && s.title === rec.title) ||
@@ -68,7 +197,14 @@ const AIPlaylist = () => {
                 if (!match) {
                     const apiMatch = await import('../services/musicApiService').then(m => m.musicApiService.searchBestMatch(rec.title, rec.artist));
                     if (apiMatch) {
-                        return { ...apiMatch, reason: rec.reason, isPreview: true };
+                        // Final check on API result
+                        const aTitle = apiMatch.title?.toLowerCase() || '';
+                        const aArtist = apiMatch.artist?.toLowerCase() || '';
+                        if (aTitle.includes('imagine dragons') || aArtist.includes('imagine dragons') ||
+                            aTitle.includes('imagine_dragons') || aArtist.includes('imagine_dragons')) return null;
+
+                        // Use isPreview: false because we now fetch full audio from YouTube
+                        return { ...apiMatch, reason: rec.reason, isPreview: false };
                     }
                 }
 
@@ -82,6 +218,7 @@ const AIPlaylist = () => {
                 setError("AI couldn't find matches in your library or the music database.");
             } else {
                 setPlaylist(validSongs);
+                savePlaylistToHistory(validSongs, prompt); // Save to history
                 setPrompt('');
             }
 
@@ -97,6 +234,12 @@ const AIPlaylist = () => {
         if (!playlist || playlist.length === 0) return;
         setQueue(playlist);
         playSong(playlist[0]);
+    };
+
+    const playHistoryPlaylist = (songs) => {
+        if (!songs || songs.length === 0) return;
+        setQueue(songs);
+        playSong(songs[0]);
     };
 
     const openYouTubeParams = (title, artist) => {
@@ -190,13 +333,22 @@ const AIPlaylist = () => {
                             <h3 className="text-2xl font-bold text-white mb-1">Generated Mix</h3>
                             <p className="text-gray-400 text-sm">Curated based on your prompt</p>
                         </div>
-                        <button
-                            onClick={playAll}
-                            className="bg-white text-black hover:bg-gray-200 px-6 py-3 rounded-full font-bold flex items-center space-x-2 transition-colors"
-                        >
-                            <Play size={18} fill="currentColor" />
-                            <span>Play Full Mix</span>
-                        </button>
+                        <div className="flex items-center space-x-3">
+                            <button
+                                onClick={() => savePlaylistToHistory(playlist, prompt)}
+                                className="bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/30 px-6 py-3 rounded-full font-bold flex items-center space-x-2 transition-all hover:scale-105"
+                            >
+                                <Save size={18} />
+                                <span>Save Mix</span>
+                            </button>
+                            <button
+                                onClick={playAll}
+                                className="bg-white text-black hover:bg-gray-200 px-6 py-3 rounded-full font-bold flex items-center space-x-2 transition-colors shadow-lg"
+                            >
+                                <Play size={18} fill="currentColor" />
+                                <span>Play Full Mix</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div className="space-y-2">
@@ -253,31 +405,50 @@ const AIPlaylist = () => {
 
 
             {/* Recent Creations Header */}
-            <div className="space-y-6 pt-10 border-t border-white/5">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-white">Recent Creations</h3>
-                    <button className="text-sm text-blue-400 hover:text-blue-300">View all</button>
-                </div>
+            {recentCreations.length > 0 && (
+                <div className="space-y-6 pt-10 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-white">Recent Creations</h3>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {recentCreations.map((item) => (
-                        <div key={item.id} className="group relative bg-[#111] rounded-2xl overflow-hidden cursor-pointer border border-white/5 hover:border-white/20 transition-all hover:-translate-y-1 duration-300">
-                            {/* Image */}
-                            <div className="aspect-square relative overflow-hidden">
-                                <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-20 mix-blend-overlay z-10`} />
-                                <img src={item.cover} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {recentCreations.map((item) => (
+                            <div
+                                key={item.id}
+                                onClick={() => playHistoryPlaylist(item.songs)}
+                                className="group relative bg-[#111] rounded-2xl overflow-hidden cursor-pointer border border-white/5 hover:border-white/20 transition-all hover:-translate-y-1 duration-300"
+                            >
+                                {/* Image */}
+                                <div className="aspect-square relative overflow-hidden">
+                                    <div className={`absolute inset-0 bg-gradient-to-br ${item.color || 'from-purple-500/20 to-blue-500/20'} opacity-20 mix-blend-overlay z-10`} />
+                                    <img src={item.cover} alt={item.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
 
-                                <div className="absolute bottom-4 left-4 right-4 z-20 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                                    <h4 className="font-bold text-white truncate">{item.title}</h4>
-                                    <p className="text-xs text-gray-400">Sonic AI • Chill Mix</p>
+                                    {/* Play Overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30">
+                                        <div className="bg-white/20 backdrop-blur-sm p-3 rounded-full">
+                                            <Play size={24} className="text-white fill-white" />
+                                        </div>
+                                    </div>
+
+                                    {/* Delete Button */}
+                                    <button
+                                        onClick={(e) => deletePlaylist(item.id, e)}
+                                        className="absolute top-4 right-4 z-40 p-2 bg-black/40 hover:bg-red-500/80 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                        <Trash2 size={16} className="text-white" />
+                                    </button>
+
+                                    <div className="absolute bottom-4 left-4 right-4 z-20 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                                        <h4 className="font-bold text-white truncate">{item.title}</h4>
+                                        <p className="text-xs text-gray-400">{item.songs?.length || 0} Songs • AI Generated</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
-            </div>
-
+            )}
         </div>
     );
 };

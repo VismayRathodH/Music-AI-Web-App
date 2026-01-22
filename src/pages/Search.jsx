@@ -1,22 +1,34 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, Play, MoreHorizontal, Disc, User, Music, Loader } from 'lucide-react';
 import { musicApiService } from '../services/musicApiService';
 import { Heart } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
+import { useSearchParams } from 'react-router-dom';
 
 const Search = () => {
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [query, setQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const { playSong } = usePlayer();
+    const { playSong, setQueue, toggleLike, isLiked } = usePlayer();
+
+    // Check for URL params on mount
+    useEffect(() => {
+        const q = searchParams.get('q');
+        if (q) {
+            setQuery(q);
+        }
+    }, [searchParams]);
 
     // Debounce search input
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedQuery(query);
-        }, 500);
+        }, 300);
         return () => clearTimeout(timer);
     }, [query]);
 
@@ -42,6 +54,13 @@ const Search = () => {
         fetchMusic();
     }, [debouncedQuery]);
 
+    const handleSongClick = (song, index) => {
+        const remainingSongs = results.slice(index);
+        setQueue(remainingSongs);
+        playSong(song);
+        navigate('/player'); // Navigate to full screen player
+    };
+
     return (
         <div className="space-y-8 min-h-screen pb-20">
             {/* Search Header */}
@@ -65,7 +84,7 @@ const Search = () => {
 
                 {/* Filter Chips */}
                 <div className="flex items-center space-x-3 mt-6 overflow-x-auto pb-2 scrollbar-hide">
-                    {['all', 'songs', 'artists'].map(tab => (
+                    {['all', 'songs'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -99,10 +118,16 @@ const Search = () => {
                     <section>
                         <h2 className="text-2xl font-bold text-white mb-4">Top Results</h2>
                         <div className="space-y-2">
-                            {results.map((song) => (
+                            {results.map((song, index) => (
                                 <div key={song.id}
-                                    onClick={() => playSong(song)}
-                                    className="group flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+                                    onClick={() => {
+                                        // Play next in sequence logic: Set the rest of the results as the queue
+                                        const remainingSongs = results.slice(index);
+                                        setQueue(remainingSongs);
+                                        playSong(song);
+                                    }}
+                                    className="group flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                                >
                                     <div className="flex items-center space-x-4">
                                         <div className="relative w-12 h-12 bg-gray-800 rounded group-hover:bg-gray-700 flex items-center justify-center overflow-hidden">
                                             <img src={song.cover} alt={song.title} className="w-full h-full object-cover" />
@@ -116,9 +141,15 @@ const Search = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-4">
-                                        <span className="text-sm text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Heart size={18} />
-                                        </span>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); toggleLike(song); }}
+                                            className="text-gray-400 hover:scale-110 transition-transform"
+                                        >
+                                            <Heart
+                                                size={18}
+                                                className={isLiked(song.id) ? 'text-red-500 fill-red-500' : 'text-gray-500'}
+                                            />
+                                        </button>
                                         <span className="text-sm text-gray-400">{song.duration}</span>
                                         <button className="text-gray-400 hover:text-white"><MoreHorizontal size={20} /></button>
                                     </div>
