@@ -1,4 +1,4 @@
-![image](Music AI.png)
+![image alt](https://github.com/VismayRathodH/Music-AI-Web-App/blob/689cfb64be19b03c674332435bd2f2ee2358afc0/Music%20AI.png)
 
 # React + Vite
 
